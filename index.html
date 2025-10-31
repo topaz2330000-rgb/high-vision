@@ -1,1 +1,115 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>High Vision Construction</title>
+  <style>
+    body {
+      font-family: Arial, sans-serif;
+      margin: 0;
+      background-color: #f5f7fa;
+      color: #333;
+    }
+    header {
+      background-color: #0a3d62;
+      color: white;
+      text-align: center;
+      padding: 60px 20px;
+    }
+    header h1 {
+      margin: 0;
+      font-size: 42px;
+    }
+    header p {
+      font-size: 18px;
+      color: #dcdde1;
+    }
+    section {
+      padding: 50px 20px;
+      max-width: 900px;
+      margin: auto;
+    }
+    h2 {
+      color: #0a3d62;
+      border-bottom: 2px solid #0a3d62;
+      padding-bottom: 5px;
+    }
+    .btn {
+      background-color: #0a3d62;
+      color: white;
+      padding: 12px 20px;
+      border: none;
+      border-radius: 6px;
+      cursor: pointer;
+      font-size: 16px;
+    }
+    .btn:hover {
+      background-color: #1e5799;
+    }
+    footer {
+      background-color: #0a3d62;
+      color: white;
+      text-align: center;
+      padding: 20px;
+      margin-top: 40px;
+    }
+    .contact-box {
+      background-color: white;
+      border: 1px solid #ccc;
+      border-radius: 10px;
+      padding: 20px;
+      margin-top: 20px;
+      text-align: center;
+      display: none;
+    }
+  </style>
+</head>
+<body>
+  <header>
+    <h1>High Vision Construction</h1>
+    <p>Building the future with strength and precision</p>
+  </header>
 
+  <section id="about">
+    <h2>About Us</h2>
+    <p>
+      High Vision Construction, led by <strong>Abbas Shah</strong>, specializes in professional building construction services.
+      We focus on quality, reliability, and long-lasting structures that stand the test of time. Our dedicated team ensures
+      every project is completed with the highest standards of safety and excellence.
+    </p>
+  </section>
+
+  <section id="profile">
+    <h2>Company Profile</h2>
+    <p>
+      Learn more about our work, experience, and successful projects by viewing our official company profile.
+    </p>
+    <a href="Printable File (1).pdf" class="btn" download>📄 Download Company Profile</a>
+  </section>
+
+  <section id="contact">
+    <h2>Contact Us</h2>
+    <p>Click the button below to view our contact details.</p>
+    <button class="btn" onclick="showContact()">Show Contact Info</button>
+
+    <div class="contact-box" id="contactBox">
+      <p><strong>Owner:</strong> Abbas Shah</p>
+      <p><strong>Phone:</strong> <a href="tel:03325588425">03325588425</a></p>
+      <p><strong>Email:</strong> <a href="mailto:highv827@gmail.com">highv827@gmail.com</a></p>
+      <p><strong>Office:</strong> Under Renovation</p>
+    </div>
+  </section>
+
+  <footer>
+    <p>&copy; 2025 High Vision Construction. All rights reserved.</p>
+  </footer>
+
+  <script>
+    function showContact() {
+      const box = document.getElementById('contactBox');
+      box.style.display = box.style.display === 'block' ? 'none' : 'block';
+    }
+  </script>
+</body>
+</html>
