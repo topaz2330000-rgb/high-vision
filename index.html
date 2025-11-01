@@ -1,279 +1,89 @@
 <!doctype html>
-<html lang="en">
+<html>
 <head>
-<meta charset="utf-8" />
-<meta name="viewport" content="width=device-width,initial-scale=1" />
-<title>Brainrot — Earworm Generator</title>
+<meta charset="utf-8">
+<title>Classic Brainrot Generator — la-tra-lero</title>
 <style>
-  :root{--bg:#0f1724;--card:#0b1220;--accent:#7c3aed;--muted:#98a0b3;--glass: rgba(255,255,255,0.03)}
-  html,body{height:100%;margin:0;font-family:Inter,system-ui,-apple-system,Segoe UI,Roboto,"Helvetica Neue",Arial}
-  body{background:linear-gradient(180deg,#071023 0%, #051028 100%);color:#e6eef8;display:flex;align-items:center;justify-content:center;padding:28px}
-  .app{width:100%;max-width:920px;background:var(--card);border-radius:12px;padding:20px;box-shadow:0 8px 30px rgba(2,6,23,0.6);backdrop-filter: blur(6px)}
-  h1{margin:0 0 8px;font-size:20px}
-  .row{display:flex;gap:12px;align-items:center}
-  .col{display:flex;flex-direction:column;gap:10px}
-  input[type="text"], textarea, select{background:var(--glass);border:1px solid rgba(255,255,255,0.04);color:inherit;padding:10px;border-radius:8px;outline:none}
-  .controls{display:flex;gap:8px;flex-wrap:wrap;margin-top:8px}
-  button{background:linear-gradient(90deg,var(--accent),#4f46e5);border:0;padding:10px 12px;border-radius:10px;color:white;cursor:pointer}
-  button.ghost{background:transparent;border:1px solid rgba(255,255,255,0.06)}
-  label{font-size:13px;color:var(--muted)}
-  .output{margin-top:12px;padding:12px;border-radius:10px;background:linear-gradient(180deg, rgba(255,255,255,0.02), rgba(255,255,255,0.01));min-height:98px}
-  .variant{padding:8px;border-radius:8px;margin-bottom:8px;background:rgba(255,255,255,0.02);display:flex;justify-content:space-between;align-items:center}
-  .variant .text{flex:1;margin-right:10px}
-  .slider{width:160px}
-  .footer{display:flex;justify-content:space-between;align-items:center;margin-top:12px;color:var(--muted);font-size:13px}
-  .big-preview{font-size:28px;font-weight:600;letter-spacing:0.4px;padding:18px;border-radius:10px;margin-top:12px;background:linear-gradient(90deg, rgba(255,255,255,0.02), rgba(255,255,255,0.01))}
+  body { background:#0c1224; color:#f8f8ff;
+    font-family:Arial, sans-serif; padding:20px; }
+  h1 { margin:0 0 10px; }
+  button {
+    padding:10px 14px; border:0; margin:6px 6px 12px 0;
+    background:#7c3aed; color:white; border-radius:8px; font-size:16px; cursor:pointer;
+  }
+  button:hover { background:#6a27d1; }
+  #output { white-space:pre-line; font-size:17px; line-height:1.5; }
 </style>
 </head>
 <body>
-  <div class="app" role="application">
-    <h1>Brainrot — earworm generator</h1>
-    <div class="row">
-      <div style="flex:1" class="col">
-        <label>Seed phrase</label>
-        <input id="seed" type="text" value="i can't stop thinking about you" />
-        <div class="controls">
-          <label>Mode</label>
-          <select id="mode">
-            <option value="stutter">Stutter</option>
-            <option value="echo">Echo</option>
-            <option value="chop">Chopped</option>
-            <option value="mirror">Mirror</option>
-            <option value="mash">Mashup</option>
-          </select>
 
-          <label>Intensity</label>
-          <input id="intensity" class="slider" type="range" min="1" max="8" value="4" />
+<h1>🧠 Classic Brainrot — La-Tra-Lero</h1>
 
-          <label>Tempo (BPM)</label>
-          <input id="tempo" class="slider" type="range" min="40" max="220" value="100" />
+<button onclick="generate()">Generate 1000</button>
+<button onclick="playAudio()">Play</button>
+<button onclick="stopAudio()">Stop</button>
 
-          <button id="generate">Generate</button>
-          <button id="play" class="ghost">Play</button>
-          <button id="stop" class="ghost">Stop</button>
-        </div>
-      </div>
-      <div style="width:260px" class="col">
-        <label>Quick presets</label>
-        <div style="display:flex;gap:8px">
-          <button class="ghost" data-seed="obsessed with you" data-mode="stutter">Obsess</button>
-          <button class="ghost" data-seed="remember the night" data-mode="echo">Echo</button>
-          <button class="ghost" data-seed="can't get you out" data-mode="chop">Chop</button>
-        </div>
-        <label style="margin-top:8px">Export / Copy</label>
-        <div style="display:flex;gap:8px">
-          <button id="copy" class="ghost">Copy all</button>
-          <button id="download" class="ghost">Download .txt</button>
-        </div>
-      </div>
-    </div>
-
-    <div id="preview" class="big-preview" aria-live="polite">Your generated brainrot will appear here.</div>
-
-    <div id="variants" class="output" role="region" aria-label="Generated variants"></div>
-
-    <div class="footer">
-      <div>Made for fun — safe, non-destructive earworms 🎧</div>
-      <div id="status">idle</div>
-    </div>
-  </div>
+<div id="output"></div>
 
 <script>
-/* Brainrot — simple generator with Web Speech playback */
-const seedEl = document.getElementById('seed');
-const modeEl = document.getElementById('mode');
-const intensityEl = document.getElementById('intensity');
-const tempoEl = document.getElementById('tempo');
-const generateBtn = document.getElementById('generate');
-const variantsEl = document.getElementById('variants');
-const preview = document.getElementById('preview');
-const status = document.getElementById('status');
-const playBtn = document.getElementById('play');
-const stopBtn = document.getElementById('stop');
-const copyBtn = document.getElementById('copy');
-const downloadBtn = document.getElementById('download');
-
+const bits = ["la", "tra", "lero", "ra", "na", "laa", "loo", "le", "li"];
+let brainrots = [];
 let playing = false;
-let playTimer = null;
-let queue = [];
-let synth = window.speechSynthesis || null;
+let timer = null;
+const synth = window.speechSynthesis;
 
-function shuffle(a){ for(let i=a.length-1;i>0;i--){ const j=Math.floor(Math.random()*(i+1)); [a[i],a[j]]=[a[j],a[i]] } return a }
-
-function stutter(s,intensity){
-  // repeat first syllable-ish bits
-  const words=s.split(' ');
-  return words.map(w=>{
-    if(w.length<=2) return w;
-    const head = w.slice(0, Math.max(1, Math.floor(w.length/3)));
-    const repeats = Math.min(3, Math.ceil(intensity/2));
-    return Array(repeats).fill(head).join('-') + ' ' + w;
-  }).join(' ');
-}
-function echo(s,intensity){
-  // append trailing echoes
-  const parts=[];
-  const repeats = Math.max(1, Math.floor(intensity/2));
-  for(let i=0;i<repeats;i++) parts.push(s.split(' ').slice(0,Math.max(1,s.split(' ').length - i)).join(' '));
-  return [s].concat(parts).join(' ... ');
-}
-function chop(s,intensity){
-  const words=s.split(' ');
-  const out=[];
-  for(let i=0;i<words.length;i++){
-    const take = Math.max(1, Math.floor((Math.random()*intensity)));
-    out.push(words.slice(i, i+take).join(' '));
+function makeOneLine() {
+  const length = Math.floor(Math.random() * 10) + 8;
+  let parts = [];
+  for (let i = 0; i < length; i++) {
+    let b = bits[Math.floor(Math.random() * bits.length)];
+    if (Math.random() > 0.85) b += b.slice(-1);
+    parts.push(b);
   }
-  return shuffle(out).slice(0, Math.min(6, out.length)).join(' | ');
+  return parts.join("-");
 }
-function mirror(s){
-  const rev = s.split('').reverse().join('');
-  return s + ' • ' + rev;
-}
-function mash(s, intensity){
-  // mix words, repeat random words
-  const words = s.split(' ');
-  let out = [];
-  for(let i=0;i<intensity;i++){
-    out = out.concat(shuffle([...words]).slice(0, Math.max(1, Math.ceil(words.length/2))));
+
+function generate() {
+  brainrots = [];
+  for (let i = 0; i < 1000; i++) {
+    brainrots.push(makeOneLine());
   }
-  return out.join(' ').replace(/\s+/g,' ').trim();
+  document.getElementById("output").textContent = brainrots.join("\n");
 }
 
-function generateVariants(seed, mode, intensity){
-  const variants=[];
-  if(mode==='stutter'){
-    for(let i=1;i<=6;i++) variants.push(stutter(seed, Math.min(intensity+i, 9)));
-  } else if(mode==='echo'){
-    for(let i=1;i<=6;i++) variants.push(echo(seed, Math.min(intensity+i, 9)));
-  } else if(mode==='chop'){
-    for(let i=1;i<=6;i++) variants.push(chop(seed, Math.min(intensity+i, 9)));
-  } else if(mode==='mirror'){
-    for(let i=1;i<=6;i++) variants.push(mirror(seed + (i>1? ' ' + (i-1):'')));
-  } else if(mode==='mash'){
-    for(let i=1;i<=6;i++) variants.push(mash(seed, Math.min(intensity+i, 12)));
-  }
-  // unique & trimmed
-  return Array.from(new Set(variants)).slice(0,6);
+function speak(text, cb) {
+  const u = new SpeechSynthesisUtterance(text);
+  u.pitch = 1.0 + (Math.random() - 0.5) * 0.3;
+  u.rate = 1.1;
+  u.onend = cb;
+  synth.speak(u);
 }
 
-function renderVariants(arr){
-  variantsEl.innerHTML = '';
-  arr.forEach((v, idx)=>{
-    const wrapper = document.createElement('div');
-    wrapper.className = 'variant';
-    const txt = document.createElement('div');
-    txt.className = 'text';
-    txt.textContent = v;
-    const btns = document.createElement('div');
-    btns.style.display='flex';
-    btns.style.gap='6px';
-    const playOne = document.createElement('button');
-    playOne.textContent='▶';
-    playOne.className='ghost';
-    playOne.onclick = ()=>{ speakQueue([v]) };
-    const copy = document.createElement('button');
-    copy.textContent='copy';
-    copy.className='ghost';
-    copy.onclick = ()=>{ navigator.clipboard.writeText(v); status.textContent='copied single'; setTimeout(()=>status.textContent='idle',900) };
-    btns.appendChild(playOne); btns.appendChild(copy);
-    wrapper.appendChild(txt); wrapper.appendChild(btns);
-    variantsEl.appendChild(wrapper);
-  });
-}
+function playAudio() {
+  if (playing) return;
+  if (brainrots.length === 0) generate();
+  playing = true;
+  let i = 0;
 
-generateBtn.addEventListener('click', ()=>{
-  const seed = seedEl.value.trim() || 'brainrot';
-  const mode = modeEl.value;
-  const intensity = parseInt(intensityEl.value,10);
-  const variants = generateVariants(seed, mode, intensity);
-  preview.textContent = variants[0] || '';
-  renderVariants(variants);
-  queue = variants;
-  status.textContent = `generated ${variants.length}`;
-});
-
-document.querySelectorAll('.ghost[data-seed]').forEach(btn=>{
-  btn.addEventListener('click', (e)=>{
-    seedEl.value = e.currentTarget.dataset.seed;
-    modeEl.value = e.currentTarget.dataset.mode;
-    generateBtn.click();
-  })
-});
-
-function speak(text, onend){
-  if(!synth){
-    console.warn('No speechSynthesis available');
-    onend && onend();
-    return;
-  }
-  // create utterance
-  const utter = new SpeechSynthesisUtterance(text);
-  // voice choices: pick a short one
-  utter.rate = Math.min(2, Math.max(0.6, 1 + (100-parseInt(tempoEl.value,10))/200));
-  utter.pitch = 1.0 + (Math.random()-0.5)*0.6;
-  utter.volume = 0.95;
-  utter.onend = onend;
-  synth.cancel();
-  synth.speak(utter);
-}
-
-function speakQueue(list){
-  if(list.length===0) return;
-  let i=0;
-  const playNext = ()=> {
-    if(!playing) return;
-    const text = list[i % list.length];
-    preview.textContent = text;
-    speak(text, ()=> {
+  const loop = () => {
+    if (!playing) return;
+    const line = brainrots[i % brainrots.length];
+    speak(line, () => {
       i++;
-      // tempo controls delay between items
-      const bpm = parseInt(tempoEl.value,10) || 100;
-      const msPerBeat = 60000 / bpm;
-      playTimer = setTimeout(playNext, msPerBeat * 2);
+      timer = setTimeout(loop, 500);
     });
   };
-  playing = true;
-  status.textContent = 'playing';
-  playNext();
+  loop();
 }
 
-playBtn.addEventListener('click', ()=>{
-  if(playing){ status.textContent = 'already playing'; return; }
-  if(queue.length===0) generateBtn.click();
-  speakQueue(queue.slice());
-});
-
-stopBtn.addEventListener('click', ()=>{
+function stopAudio() {
   playing = false;
-  clearTimeout(playTimer);
-  if(synth) synth.cancel();
-  status.textContent = 'stopped';
-});
+  clearTimeout(timer);
+  synth.cancel();
+}
 
-copyBtn.addEventListener('click', ()=>{
-  const all = Array.from(variantsEl.querySelectorAll('.text')).map(n=>n.textContent).join('\n\n');
-  navigator.clipboard.writeText(all);
-  status.textContent = 'copied all';
-  setTimeout(()=>status.textContent='idle',800);
-});
-
-downloadBtn.addEventListener('click', ()=>{
-  const all = Array.from(variantsEl.querySelectorAll('.text')).map(n=>n.textContent).join('\n\n');
-  const blob = new Blob([all], {type:'text/plain;charset=utf-8'});
-  const url = URL.createObjectURL(blob);
-  const a = document.createElement('a');
-  a.href = url; a.download = 'brainrot.txt';
-  document.body.appendChild(a);
-  a.click();
-  a.remove();
-  URL.revokeObjectURL(url);
-  status.textContent = 'downloaded';
-  setTimeout(()=>status.textContent='idle',900);
-});
-
-// seed quick generate on load
-generateBtn.click();
+generate();
 </script>
+
 </body>
 </html>
