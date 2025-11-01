@@ -1,89 +1,468 @@
 <!doctype html>
-<html>
+<html lang="en">
 <head>
-<meta charset="utf-8">
-<title>Classic Brainrot Generator — la-tra-lero</title>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width,initial-scale=1" />
+<title>Ping Pong — Classic</title>
 <style>
-  body { background:#0c1224; color:#f8f8ff;
-    font-family:Arial, sans-serif; padding:20px; }
-  h1 { margin:0 0 10px; }
-  button {
-    padding:10px 14px; border:0; margin:6px 6px 12px 0;
-    background:#7c3aed; color:white; border-radius:8px; font-size:16px; cursor:pointer;
+  :root{
+    --bg:#0b1224; --panel:#0f1724; --accent:#7c3aed; --muted:#98a0b3; --text:#e6eef8;
   }
-  button:hover { background:#6a27d1; }
-  #output { white-space:pre-line; font-size:17px; line-height:1.5; }
+  html,body{height:100%;margin:0;font-family:Inter,system-ui,-apple-system,Segoe UI,Roboto,"Helvetica Neue",Arial}
+  body{background:linear-gradient(180deg,#061025 0%, #07122a 100%);color:var(--text);display:flex;align-items:center;justify-content:center;padding:18px}
+  .wrap{width:100%;max-width:980px}
+  header{display:flex;align-items:center;justify-content:space-between;margin-bottom:12px}
+  h1{font-size:18px;margin:0}
+  .controls{display:flex;gap:8px;align-items:center}
+  button, select, label {background:transparent;color:var(--text);border:1px solid rgba(255,255,255,0.06);padding:8px 10px;border-radius:8px}
+  button:hover{border-color:rgba(255,255,255,0.12);cursor:pointer}
+  canvas{display:block;width:100%;height:auto;border-radius:10px;background:linear-gradient(180deg, rgba(255,255,255,0.02), rgba(255,255,255,0.01));box-shadow:0 10px 30px rgba(2,6,23,0.6)}
+  .hud{display:flex;justify-content:space-between;align-items:center;margin-top:8px;color:var(--muted);font-size:14px}
+  .score{font-weight:700;color:var(--accent);font-size:20px}
+  .small{font-size:13px;color:var(--muted)}
+  .center{display:flex;gap:8px;align-items:center}
+  @media (max-width:640px){
+    header{flex-direction:column;align-items:flex-start;gap:8px}
+    .controls{flex-wrap:wrap}
+  }
 </style>
 </head>
 <body>
+  <div class="wrap">
+    <header>
+      <h1>Ping Pong — Classic</h1>
+      <div class="controls">
+        <label class="small">CPU:</label>
+        <select id="difficulty" title="CPU difficulty">
+          <option value="0.82">Easy</option>
+          <option value="0.92" selected>Medium</option>
+          <option value="1.05">Hard</option>
+        </select>
+        <label class="small">Controls:</label>
+        <button id="toggleMouse">Mouse: On</button>
+        <button id="pauseBtn">Pause</button>
+        <button id="resetBtn">Reset</button>
+      </div>
+    </header>
 
-<h1>🧠 Classic Brainrot — La-Tra-Lero</h1>
+    <canvas id="c" width="960" height="600" aria-label="Ping Pong game canvas"></canvas>
 
-<button onclick="generate()">Generate 1000</button>
-<button onclick="playAudio()">Play</button>
-<button onclick="stopAudio()">Stop</button>
-
-<div id="output"></div>
+    <div class="hud">
+      <div class="center">
+        <div class="small">Player</div>
+        <div style="width:12px"></div>
+        <div id="pScore" class="score">0</div>
+      </div>
+      <div class="center small">
+        <div id="status">Press Space to Serve — Controls: W/S or ↑/↓ (or touch)</div>
+      </div>
+      <div class="center">
+        <div class="score" id="cScore">0</div>
+        <div style="width:12px"></div>
+        <div class="small">CPU</div>
+      </div>
+    </div>
+  </div>
 
 <script>
-const bits = ["la", "tra", "lero", "ra", "na", "laa", "loo", "le", "li"];
-let brainrots = [];
-let playing = false;
-let timer = null;
-const synth = window.speechSynthesis;
+/* Ping Pong — single-file game
+   Controls:
+    - W / S or ArrowUp / ArrowDown
+    - Mouse movement on canvas (toggleable)
+    - Touch: drag left/right half to move player's paddle
+    - Space to serve when ball is stopped
+*/
 
-function makeOneLine() {
-  const length = Math.floor(Math.random() * 10) + 8;
-  let parts = [];
-  for (let i = 0; i < length; i++) {
-    let b = bits[Math.floor(Math.random() * bits.length)];
-    if (Math.random() > 0.85) b += b.slice(-1);
-    parts.push(b);
+const canvas = document.getElementById('c');
+const ctx = canvas.getContext('2d');
+
+let W = canvas.width, H = canvas.height;
+
+function resizeCanvas() {
+  // Maintain aspect ratio while being responsive
+  const maxWidth = Math.min(window.innerWidth - 36, 960);
+  const scale = maxWidth / 960;
+  canvas.style.width = (960 * scale) + 'px';
+  canvas.style.height = (600 * scale) + 'px';
+}
+window.addEventListener('resize', resizeCanvas);
+resizeCanvas();
+
+// Game state
+const state = {
+  p: { x: 32, y: H/2 - 60/2, w: 12, h: 100, vy: 0, speed: 7 },
+  c: { x: W - 44, y: H/2 - 60/2, w: 12, h: 100, vy: 0 },
+  ball: { x: W/2, y: H/2, r: 9, vx: 0, vy: 0, speed: 6 },
+  pScore: 0, cScore: 0,
+  playing: true,
+  serving: true,
+  serveSide: Math.random() < 0.5 ? -1 : 1, // -1 means player serves to CPU, 1 CPU serves to player
+  useMouse: true,
+  difficulty: parseFloat(document.getElementById('difficulty').value),
+  maxScore: 11,
+};
+
+// Audio: small utility for beep sounds
+const AudioCtx = window.AudioContext || window.webkitAudioContext;
+const audioCtx = AudioCtx ? new AudioCtx() : null;
+function beep(freq=440, time=0.06, type='sine', gain=0.08) {
+  if (!audioCtx) return;
+  const o = audioCtx.createOscillator();
+  const g = audioCtx.createGain();
+  o.type = type; o.frequency.value = freq;
+  g.gain.setValueAtTime(gain, audioCtx.currentTime);
+  o.connect(g); g.connect(audioCtx.destination);
+  o.start();
+  o.stop(audioCtx.currentTime + time);
+}
+
+// Helpers
+function clamp(v,a,b){ return Math.max(a, Math.min(b, v)); }
+
+// Reset ball for serve
+function resetBall(toRight=true) {
+  state.ball.x = W/2;
+  state.ball.y = H/2;
+  const baseSpeed = 6;
+  const dir = toRight ? 1 : -1;
+  // stopped until serve
+  state.ball.vx = 0;
+  state.ball.vy = 0;
+  state.playing = false;
+  state.serving = true;
+  state.serveSide = dir;
+  updateStatus('Press Space to Serve');
+}
+
+// Start serve
+function serveBall() {
+  if (!state.serving) return;
+  // give some random vertical angle
+  const angle = (Math.random() * 0.6 - 0.3); // -0.3..0.3
+  const vx = 6 * state.serveSide;
+  const vy = 6 * angle;
+  state.ball.vx = vx;
+  state.ball.vy = vy;
+  state.playing = true;
+  state.serving = false;
+  updateStatus('Playing');
+  beep(520, 0.04, 'triangle', 0.06);
+}
+
+// Score
+function scorePoint(player) {
+  if (player === 'player') {
+    state.pScore++;
+    beep(880, 0.18, 'sine', 0.09);
+  } else {
+    state.cScore++;
+    beep(220, 0.18, 'sine', 0.09);
   }
-  return parts.join("-");
-}
-
-function generate() {
-  brainrots = [];
-  for (let i = 0; i < 1000; i++) {
-    brainrots.push(makeOneLine());
+  // check win
+  if (state.pScore >= state.maxScore || state.cScore >= state.maxScore) {
+    const winner = state.pScore > state.cScore ? 'Player wins!' : 'CPU wins!';
+    updateStatus(winner + ' — Press Reset to play again');
+    state.playing = false;
+    state.serving = false;
+    return;
   }
-  document.getElementById("output").textContent = brainrots.join("\n");
+  // alternate serve
+  const dir = (Math.random() < 0.5) ? -1 : 1;
+  resetBall(dir > 0);
+  updateHUD();
 }
 
-function speak(text, cb) {
-  const u = new SpeechSynthesisUtterance(text);
-  u.pitch = 1.0 + (Math.random() - 0.5) * 0.3;
-  u.rate = 1.1;
-  u.onend = cb;
-  synth.speak(u);
+// Update HUD text
+function updateHUD() {
+  document.getElementById('pScore').textContent = state.pScore;
+  document.getElementById('cScore').textContent = state.cScore;
 }
 
-function playAudio() {
-  if (playing) return;
-  if (brainrots.length === 0) generate();
-  playing = true;
-  let i = 0;
-
-  const loop = () => {
-    if (!playing) return;
-    const line = brainrots[i % brainrots.length];
-    speak(line, () => {
-      i++;
-      timer = setTimeout(loop, 500);
-    });
-  };
-  loop();
+// Update status message
+function updateStatus(text) {
+  document.getElementById('status').textContent = text;
 }
 
-function stopAudio() {
-  playing = false;
-  clearTimeout(timer);
-  synth.cancel();
+// Game loop & physics
+function update(dt) {
+  // Player movement
+  state.p.y += state.p.vy * dt;
+  state.p.y = clamp(state.p.y, 8, H - state.p.h - 8);
+
+  // CPU AI: follow ball with smoothing controlled by difficulty
+  const centerC = state.c.y + state.c.h/2;
+  const targetY = state.ball.y - state.c.h/2;
+  const diff = targetY - state.c.y;
+  // difficulty multiplier affects speed responsiveness
+  state.c.vy = clamp(diff * state.difficulty * 0.02, -9, 9);
+  state.c.y += state.c.vy * dt;
+  state.c.y = clamp(state.c.y, 8, H - state.c.h - 8);
+
+  // Ball movement if playing
+  if (state.playing) {
+    state.ball.x += state.ball.vx * dt;
+    state.ball.y += state.ball.vy * dt;
+
+    // top/bottom bounce
+    if (state.ball.y - state.ball.r < 6) {
+      state.ball.y = 6 + state.ball.r;
+      state.ball.vy *= -1;
+      beep(720,0.02,'sine',0.02);
+    }
+    if (state.ball.y + state.ball.r > H - 6) {
+      state.ball.y = H - 6 - state.ball.r;
+      state.ball.vy *= -1;
+      beep(720,0.02,'sine',0.02);
+    }
+
+    // paddle collision: player
+    if (state.ball.x - state.ball.r < state.p.x + state.p.w) {
+      if (state.ball.y > state.p.y && state.ball.y < state.p.y + state.p.h) {
+        // hit! reflect and add spin based on where it hit
+        const relative = (state.ball.y - (state.p.y + state.p.h/2)) / (state.p.h/2);
+        const bounce = 1 + Math.abs(relative) * 0.5;
+        state.ball.vx = Math.abs(state.ball.vx) * 1.03; // speed up slightly
+        state.ball.vx = Math.max(4, state.ball.vx) * 1; // ensure minimum
+        state.ball.vx = Math.abs(state.ball.vx);
+        state.ball.vx *= 1; // ensure positive
+        state.ball.vx = Math.max(state.ball.vx, 4);
+        state.ball.vx = Math.abs(state.ball.vx);
+        state.ball.vx = Math.abs(state.ball.vx);
+        state.ball.vx = Math.abs(state.ball.vx);
+        // set direction to right
+        state.ball.vx = Math.abs(state.ball.vx) + 0.4;
+        // vertical velocity influenced by hit position
+        state.ball.vy = relative * 6;
+        state.ball.x = state.p.x + state.p.w + state.ball.r + 0.5;
+        beep(1200 + Math.abs(relative)*200, 0.02, 'square', 0.06);
+      }
+    }
+
+    // paddle collision: CPU
+    if (state.ball.x + state.ball.r > state.c.x) {
+      if (state.ball.y > state.c.y && state.ball.y < state.c.y + state.c.h) {
+        const relative = (state.ball.y - (state.c.y + state.c.h/2)) / (state.c.h/2);
+        state.ball.vx = -Math.abs(state.ball.vx) - 0.4; // head back to left
+        state.ball.vy = relative * 6;
+        state.ball.x = state.c.x - state.ball.r - 0.5;
+        // small tone
+        beep(600 + Math.abs(relative)*100, 0.02, 'square', 0.06);
+      }
+    }
+
+    // score (past left or right)
+    if (state.ball.x < -30) {
+      // CPU scores
+      scorePoint('cpu');
+      return;
+    }
+    if (state.ball.x > W + 30) {
+      // Player scores
+      scorePoint('player');
+      return;
+    }
+  }
 }
 
-generate();
+// Render
+function draw() {
+  // clear
+  ctx.clearRect(0,0,W,H);
+
+  // court background
+  ctx.fillStyle = '#071028';
+  ctx.fillRect(0,0,W,H);
+
+  // center line
+  ctx.strokeStyle = 'rgba(255,255,255,0.06)';
+  ctx.lineWidth = 2;
+  ctx.setLineDash([10,14]);
+  ctx.beginPath();
+  ctx.moveTo(W/2, 0);
+  ctx.lineTo(W/2, H);
+  ctx.stroke();
+  ctx.setLineDash([]);
+
+  // paddles
+  ctx.fillStyle = '#e6eef8';
+  roundRect(ctx, state.p.x, state.p.y, state.p.w, state.p.h, 6, true, false);
+  roundRect(ctx, state.c.x, state.c.y, state.c.w, state.c.h, 6, true, false);
+
+  // ball
+  ctx.fillStyle = '#f0f2ff';
+  circle(ctx, state.ball.x, state.ball.y, state.ball.r);
+
+  // scoreboard small
+  ctx.fillStyle = 'rgba(255,255,255,0.06)';
+  ctx.fillRect(W/2 - 120, 8, 240, 36);
+  ctx.fillStyle = '#111827';
+  ctx.fillRect(W/2 - 118, 10, 236, 32);
+  ctx.fillStyle = '#7c3aed';
+  ctx.font = '20px Inter, Arial';
+  ctx.textAlign = 'center';
+  ctx.fillText(`${state.pScore} — ${state.cScore}`, W/2, 34);
+}
+
+// Helper draw primitives
+function roundRect(ctx, x, y, w, h, r, fill, stroke) {
+  if (r < 0) r = 0;
+  ctx.beginPath();
+  ctx.moveTo(x + r, y);
+  ctx.arcTo(x + w, y, x + w, y + h, r);
+  ctx.arcTo(x + w, y + h, x, y + h, r);
+  ctx.arcTo(x, y + h, x, y, r);
+  ctx.arcTo(x, y, x + w, y, r);
+  ctx.closePath();
+  if (fill) ctx.fill();
+  if (stroke) ctx.stroke();
+}
+function circle(ctx, x, y, r) { ctx.beginPath(); ctx.arc(x,y,r,0,Math.PI*2); ctx.fill(); }
+
+// Main loop
+let last = performance.now();
+function tick(now) {
+  const dt = Math.min(30, now - last) / (1000/60); // scale factor ~60fps units
+  last = now;
+  if (!state.playing && !state.serving) {
+    // do nothing but still render
+  } else {
+    update(dt);
+  }
+  draw();
+  requestAnimationFrame(tick);
+}
+requestAnimationFrame(tick);
+
+// Input handling
+const keys = {};
+window.addEventListener('keydown', (e) => {
+  keys[e.key] = true;
+  handleKeys();
+  if (e.code === 'Space') {
+    serveBall();
+    e.preventDefault();
+  }
+});
+window.addEventListener('keyup', (e) => {
+  keys[e.key] = false;
+  handleKeys();
+});
+
+function handleKeys() {
+  // vertical velocity for player paddle
+  if (keys['w'] || keys['W'] || keys['ArrowUp']) {
+    state.p.vy = -state.p.speed;
+  } else if (keys['s'] || keys['S'] || keys['ArrowDown']) {
+    state.p.vy = state.p.speed;
+  } else {
+    state.p.vy = 0;
+  }
+}
+
+// Mouse control (toggle)
+const toggleMouseBtn = document.getElementById('toggleMouse');
+toggleMouseBtn.addEventListener('click', () => {
+  state.useMouse = !state.useMouse;
+  toggleMouseBtn.textContent = `Mouse: ${state.useMouse ? 'On' : 'Off'}`;
+});
+
+// mouse move maps to player paddle center
+canvas.addEventListener('mousemove', (e) => {
+  if (!state.useMouse) return;
+  const rect = canvas.getBoundingClientRect();
+  const scaleY = canvas.height / rect.height;
+  const y = (e.clientY - rect.top) * scaleY;
+  state.p.y = clamp(y - state.p.h/2, 8, H - state.p.h - 8);
+});
+
+// Touch support
+let ongoingTouchId = null;
+canvas.addEventListener('touchstart', (e) => {
+  const t = e.changedTouches[0];
+  ongoingTouchId = t.identifier;
+  touchMoveHandler(t);
+  e.preventDefault();
+}, {passive:false});
+canvas.addEventListener('touchmove', (e) => {
+  for (let i=0;i<e.changedTouches.length;i++){
+    const t = e.changedTouches[i];
+    if (t.identifier === ongoingTouchId) {
+      touchMoveHandler(t);
+      break;
+    }
+  }
+  e.preventDefault();
+}, {passive:false});
+canvas.addEventListener('touchend', (e) => {
+  ongoingTouchId = null;
+}, {passive:false});
+
+function touchMoveHandler(touch) {
+  const rect = canvas.getBoundingClientRect();
+  const scaleY = canvas.height / rect.height;
+  const x = touch.clientX - rect.left;
+  const y = (touch.clientY - rect.top) * scaleY;
+  // If touch on left half -> player control
+  if (x < rect.width / 2) {
+    state.p.y = clamp(y - state.p.h/2, 8, H - state.p.h - 8);
+  } else {
+    // optionally allow dragging CPU paddle on right half (for two-player on device)
+    state.c.y = clamp(y - state.c.h/2, 8, H - state.c.h - 8);
+  }
+}
+
+// Difficulty
+document.getElementById('difficulty').addEventListener('change', (e) => {
+  state.difficulty = parseFloat(e.target.value);
+});
+
+// Pause & reset
+const pauseBtn = document.getElementById('pauseBtn');
+pauseBtn.addEventListener('click', () => {
+  if (!state.playing && state.serving) {
+    // currently waiting for serve
+    state.playing = false;
+    state.serving = false;
+    updateStatus('Paused');
+    pauseBtn.textContent = 'Resume';
+    return;
+  }
+  if (pauseBtn.textContent === 'Pause') {
+    state.playing = false;
+    pauseBtn.textContent = 'Resume';
+    updateStatus('Paused');
+  } else {
+    state.playing = true;
+    pauseBtn.textContent = 'Pause';
+    updateStatus('Playing');
+  }
+});
+
+document.getElementById('resetBtn').addEventListener('click', () => {
+  // reset everything
+  state.pScore = 0; state.cScore = 0;
+  updateHUD();
+  resetBall(Math.random() < 0.5);
+  state.playing = false;
+  state.serving = true;
+  pauseBtn.textContent = 'Pause';
+  updateStatus('Press Space to Serve');
+});
+
+// initialize
+updateHUD();
+resetBall(state.serveSide > 0);
+
+// ensure audio context resumes on user gesture (some browsers block autoplay)
+function resumeAudioOnGesture() {
+  if (!audioCtx) return;
+  if (audioCtx.state === 'suspended') {
+    audioCtx.resume();
+  }
+}
+window.addEventListener('click', resumeAudioOnGesture, {once:true});
+window.addEventListener('touchstart', resumeAudioOnGesture, {once:true});
+
 </script>
-
 </body>
 </html>
