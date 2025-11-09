@@ -1,16 +1,1 @@
-## LICENSE
 
----
-
-
-## Notes & next steps I can help with
-- Make uploads possible (requires a backend or Firebase storage).
-- Add user accounts, likes, comments (requires backend).
-- Convert to React + deploy to Netlify/Vercel.
-- Make a GitHub Actions workflow to auto-deploy from `main`.
-
-
----
-
-
-**What I did:** I generated a ready-to-push static project and placed it in this canvas. Open the document to copy files and the README. Follow the README to push to GitHub and enable Pages. Replace `<your-username>` and `<repo>` with your values to get the live site link.
